@@ -53,9 +53,9 @@ CH_B = 0
 
 # Which APIDs to look for
 APIDS = {
-  CH_R: 68,
-  CH_G: 65,
-  CH_B: 64
+  CH_R: '68',
+  CH_G: '65',
+  CH_B: '64'
 }
 
 # Color mapping to produce false color image
@@ -73,7 +73,7 @@ MEDET_DEF_ARGS = ['-q', '-s',
 
 # medet extra arguments per sat
 MEDET_EXTRA_ARGS = {
-  METEOR_M2_1_ID: []
+  METEOR_M2_1_ID: [],
   METEOR_M2_2_ID: ['-diff']}
 
 # meteor_demod args to produce an s-file from an iq-file for M2 2
@@ -117,10 +117,11 @@ def convert_images(output_name):
     convert_cmd_ir = [CONVERT_PATH,
                       "%s_%d.bmp" % (output_name, IR_IMAGE_CH),
                       ir_file]
-
+    print(convert_cmd_fc)
     return_code = subprocess.call(convert_cmd_fc)
     print("convert fc returned %d " % return_code)
 
+    print(convert_cmd_ir)
     return_code = subprocess.call(convert_cmd_ir)
     print("convert ir returned %d " % return_code)
 
