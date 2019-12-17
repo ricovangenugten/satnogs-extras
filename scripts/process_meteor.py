@@ -27,7 +27,7 @@ import re
 
 
 # main path where all meteor files are. The following subdirs
-# are expected: /new_s, /found_s, /complete_s, /new_iq, /found_iq, /complete_iq
+# are expected: /new_s, /complete_s, /new_iq, /complete_iq
 DATA_PATH = "/datadrive/meteor"
 
 # Where to place the complete images.
@@ -68,7 +68,7 @@ VIS_IMAGE_CHS = {
 IR_IMAGE_CH = CH_R
 
 # medet default arguments to produce separate images for each individual channel
-MEDET_DEF_ARGS = ['-q', '-s', 
+MEDET_DEF_ARGS = ['-q', '-s',
                   '-r', APIDS[CH_R], '-g', APIDS[CH_G], '-b', APIDS[CH_B]]
 
 # medet extra arguments per sat
@@ -88,10 +88,6 @@ WAIT_TIME = 120
 # What wildcard string to use when searching for new s and iq files.
 S_NEW_PATH = DATA_PATH + "/new_s/data_%d_*.s"
 IQ_NEW_PATH = DATA_PATH + "/new_iq/data_%d_*.iq"
-
-# Where to put the s and iq files while processing them.
-S_FOUND_DIR = DATA_PATH + "/found_s/"
-IQ_FOUND_DIR = DATA_PATH + "/found_iq/"
 
 # Where to put the processed s and iq files.
 S_COMPLETE_DIR = DATA_PATH + "/complete_s/"
@@ -218,21 +214,37 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     sat_id = None
+    wait_time = 0
 
     if args.tle:
         tle = " ".join(args.tle)
         match = re.search(r"1 (\d*)U", tle)
         if match is not None:
             sat_id = int(match.group(1))
+        wait_time = WAIT_TIME
 
     if args.sat_id:
         sat_id = args.sat_id
+        wait_time = 0
 
     if sat_id is None:
         parser.print_help()
         exit(-1)
 
-    print("Post observation script for sat id: %d" % sat_id)
+    print("Post observation script for sat id %d" % sat_id)
+
+    if sat_id in [METEOR_M2_1_ID, METEOR_M2_2_ID]:
+        pid = os.fork()
+        if pid > 0:
+            print("Forked, parent quitting")
+            exit(0)
+    else:
+        print("No processing to be done for sat id %d" % sat_id)
+        exit(0)
+
+    # Sleep for a bit.
+    print("Waiting for %d seconds before processing." % wait_time)
+    sleep(wait_time)
 
     # Search for s files.
     s_path = S_NEW_PATH % args.id
@@ -253,19 +265,11 @@ if __name__ == "__main__":
 
             print("Processing %s " % new_s_file)
 
-            # move file to found dir so other instances won't process it
-            found_s_file = S_FOUND_DIR + os.path.basename(new_s_file)
-            shutil.move(new_s_file, found_s_file)
-
-            # Sleep for a bit.
-            print("Waiting for %d seconds before processing." % WAIT_TIME)
-            sleep(WAIT_TIME)
-
             # Process soft bit file
-            process_s_file(found_s_file, sat_id)
+            process_s_file(new_s_file, sat_id)
 
             # Move processed s file into complete directory
-            handle_complete_file(found_s_file, S_COMPLETE_DIR)
+            handle_complete_file(new_s_file, S_COMPLETE_DIR)
 
     if sat_id == METEOR_M2_2_ID:
 
@@ -280,21 +284,13 @@ if __name__ == "__main__":
 
             print("Processing %s " % new_iq_file)
 
-            # move file to found dir so other instances won't process it
-            found_iq_file = IQ_FOUND_DIR + os.path.basename(new_iq_file)
-            shutil.move(new_iq_file, found_iq_file)
-
-            # Sleep for a bit.
-            print("Waiting for %d seconds before processing." % WAIT_TIME)
-            sleep(WAIT_TIME)
-
             # Generate s file
-            generated_s_file = generate_s_file(found_iq_file)
+            generated_s_file = generate_s_file(new_iq_file)
 
             # Process s file if there is one
             if generated_s_file is not None:
                 process_s_file(generated_s_file, sat_id)
 
                 # Move processed iq file into complete directory
-                handle_complete_file(found_iq_file, IQ_COMPLETE_DIR)
+                handle_complete_file(new_iq_file, IQ_COMPLETE_DIR)
                 handle_complete_file(generated_s_file, IQ_COMPLETE_DIR)
