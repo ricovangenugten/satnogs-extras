@@ -27,20 +27,25 @@ import re
 
 
 # main path where all meteor files are. The following subdirs
-# are expected: /new_s, /complete_s, /new_iq, /complete_iq
-DATA_PATH = "/datadrive/meteor"
+# are expected: /new_iq, /intermediate, /complete, /bin
+DATA_PATH         = "/datadrive/meteor"
 
 # Where to place the complete images.
-DESTINATION_DIR = "/tmp/.satnogs/data/"
+DESTINATION_DIR   = "/tmp/.satnogs/data"
 
 # Whether you want to delete input files when complete
 DELETE_COMPLETE_FILES = False
 
 # Paths to binaries we need. If these binaries are not on $PATH, change the
 # paths below to point to the appropriate place.
-MEDET_PATH = DATA_PATH + "/bin/medet_arm"
+MEDET_PATH        = DATA_PATH + "/bin/medet_arm"
 METEOR_DEMOD_PATH = DATA_PATH + "/bin/meteor_demod"
-CONVERT_PATH = "convert"
+CONVERT_PATH      = "convert"
+
+# Derived paths
+IQ_NEW_PATH       = DATA_PATH + "/new_iq/last_obs.iq"
+INTERMEDIATE_DIR  = DATA_PATH + "/intermediate"
+COMPLETE_DIR      = DATA_PATH + "/complete"
 
 # NORAD IDs
 METEOR_M2_1_ID = 40069
@@ -77,22 +82,17 @@ MEDET_EXTRA_ARGS = {
   METEOR_M2_2_ID: ['-diff']}
 
 # meteor_demod args to produce an s-file from an iq-file for M2 2
-METEOR_DEMOD_ARGS_M2_2 = ['-B', '-R', '1000', '-f', '24', '-b', '300',
-                          '-s', '156250', '-r', '72000', '-d', '1000',
-                          '-m', 'oqpsk']
+METEOR_DEMOD_DEF_ARGS = ['-B', '-R', '1000', '-f', '24', '-b', '300',
+                         '-s', '288000', '-r', '72000', '-d', '1000']
+
+# meteor demod args per sat
+METEOR_DEMOD_EXTRA_ARGS = {
+  METEOR_M2_1_ID: [],
+  METEOR_M2_2_ID: ['-m', 'oqpsk']}
 
 # Wait for a bit before processing, to avoid clashing with waterfall processing
 # and running out of RAM.
 WAIT_TIME = 120
-
-# What wildcard string to use when searching for new s and iq files.
-S_NEW_PATH = DATA_PATH + "/new_s/data_%d_*.s"
-IQ_NEW_PATH = DATA_PATH + "/new_iq/data_%d_*.iq"
-
-# Where to put the processed s and iq files.
-S_COMPLETE_DIR = DATA_PATH + "/complete_s/"
-IQ_COMPLETE_DIR = DATA_PATH + "/complete_iq/"
-
 
 def convert_images(output_name):
     """
@@ -147,14 +147,15 @@ def run_medet(source_file, output_name, extra_args):
     return return_code
 
 
-def generate_s_file(iq_file):
+def generate_s_file(iq_file, sat_id):
     """
     Attempt to run meteor_demod over an iq file to obtain an s-file
     """
 
     s_file = os.path.splitext(iq_file)[0] + ".s"
     dem_cmd = [METEOR_DEMOD_PATH]
-    dem_cmd.extend(METEOR_DEMOD_ARGS_M2_2)
+    dem_cmd.extend(METEOR_DEMOD_DEF_ARGS)
+    dem_cmd.extend(METEOR_DEMOD_EXTRA_ARGS[sat_id])
     dem_cmd.extend(['-o', s_file, iq_file])
 
     print(dem_cmd)
@@ -194,15 +195,15 @@ def process_s_file(s_file, sat_id):
         print("No images are created")
 
 
-def handle_complete_file(complete_file, complete_dir):
+def handle_complete_files(file_base):
     """
-    Move or delete a file that we are done processing
+    Move or delete files that we are done processing
     """
-
-    if DELETE_COMPLETE_FILES:
-        os.remove(complete_file)
-    else:
-        shutil.move(complete_file, complete_dir)
+    for complete_file in glob("%s*" % file_base):
+      if DELETE_COMPLETE_FILES:
+          os.remove(complete_file)
+      else:
+          shutil.move(complete_file, COMPLETE_DIR)
 
 
 if __name__ == "__main__":
@@ -246,51 +247,27 @@ if __name__ == "__main__":
     print("Waiting for %d seconds before processing." % wait_time)
     sleep(wait_time)
 
-    # Search for s files.
-    s_path = S_NEW_PATH % args.id
-    new_s_files = glob(s_path)
-    iq_path = IQ_NEW_PATH % args.id
-    new_iq_files = glob(iq_path)
+    # Search for iq files.
+    new_iq_files = glob(IQ_NEW_PATH)
 
-    if sat_id == METEOR_M2_1_ID:
+    print("METEOR M2 2: looking for %s " % IQ_NEW_PATH)
 
-        print("METEOR M2 1: looking for %s " % s_path)
+    # handle iq files
+    for new_iq_file in new_iq_files:
 
-        # remove iq files, not needed for M2 1
-        for new_iq_file in new_iq_files:
-            os.remove(new_iq_file)
+        print("Processing %s " % new_iq_file)
 
-        # handle s-files
-        for new_s_file in new_s_files:
+        intermediate_file_base = "%s/data_%d" % (INTERMEDIATE_DIR, args.id)
+        moved_iq_file = "%s.iq" % (intermediate_file_base)
+        shutil.move(new_iq_file, moved_iq_file)
 
-            print("Processing %s " % new_s_file)
+        # Generate s file
+        generated_s_file = generate_s_file(moved_iq_file, sat_id)
 
-            # Process soft bit file
-            process_s_file(new_s_file, sat_id)
+        # Process s file if there is one
+        if generated_s_file is not None:
+            process_s_file(generated_s_file, sat_id)
 
-            # Move processed s file into complete directory
-            handle_complete_file(new_s_file, S_COMPLETE_DIR)
+        # Move or delete processed iq file
+        handle_complete_files(intermediate_file_base)
 
-    if sat_id == METEOR_M2_2_ID:
-
-        print("METEOR M2 2: looking for %s " % iq_path)
-
-        # delete s files, we need to generate a new ones for M2 2
-        for new_s_file in new_s_files:
-            os.remove(new_s_file)
-
-        # handle iq files
-        for new_iq_file in new_iq_files:
-
-            print("Processing %s " % new_iq_file)
-
-            # Generate s file
-            generated_s_file = generate_s_file(new_iq_file)
-
-            # Process s file if there is one
-            if generated_s_file is not None:
-                process_s_file(generated_s_file, sat_id)
-
-                # Move processed iq file into complete directory
-                handle_complete_file(new_iq_file, IQ_COMPLETE_DIR)
-                handle_complete_file(generated_s_file, IQ_COMPLETE_DIR)
