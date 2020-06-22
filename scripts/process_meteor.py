@@ -1,17 +1,31 @@
 #!/usr/bin/env python
 #
 #   Meteor Decoder Processor
-#   Initial version for Metor M2:
+#   Initial version for Meteor M2:
 #   Mark Jessop <vk5qi@rfhead.net> 2017-09-01
-#   Extended for Meteor M2 2:
+#   This version:
 #   Rico van Genugten @PA3RVG 2019-11-19
 #
-#   This script processes soft-bit and iq recordings from wherever
-#   satnogs_lrpt_demod puts them, then places output images in the satnogs
-#   recorded data directory to be uploaded (eventually)
+#   This script picks up LRPT IQ recordings from wherever a satnogs flowgraph 
+#   puts them, processes them and places output images in the satnogs recorded 
+#   data directory, where satnogs-client will pick them up and upload them to the
+#   corresponding observation.
 #
-#   This script can be directly run as a post observation script, use the
-#   following config value in satnogs_setup:
+#   You can use any satnogs flowgraph that produces IQ data with a wide enough
+#   bandwidth, I used the satnogs FSK flowgraph since it outputs IQ data at a
+#   sample rate of 4 times the baud rate which is 7200 * 4 = 28800 for Meteor M2,
+#   more than enough for LRPT. To configure the flowgraph that is used for LRPT
+#   edit the satnogs-client settings.py. There is a map describing which
+#   flowgraph to use for which modulation. Copy the map item with the key 'FSK', leave
+#   copied value the same and change the copied key to 'LRPT'.
+#
+#   This script can be directly run as a post observation script. It depends on
+#   meteor_demod and medet, so be sure to install those on your system and configure
+#   the paths to the binaries below. Also update the data paths to suit your system.
+#   Then, in satnogs_setup enable iq dumping to the path as specified in IQ_NEW_PATH
+#   Do not use /var/tmp to store the IQ files on a Raspberry Pi, as this is a ramdisk 
+#   that could potentially be filled up quickly. Then configure this script as post
+#   observation script using the following line:
 #
 #   /path/to/this/script.py --id {{ID}} --tle {{TLE}}
 #
