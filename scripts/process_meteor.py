@@ -96,8 +96,9 @@ MEDET_EXTRA_ARGS = {
   METEOR_M2_2_ID: ['-diff']}
 
 # meteor_demod args to produce an s-file from an iq-file for M2 2
+# you can optionally add -d 1000 if you are running the devel branch of meteor_demod
 METEOR_DEMOD_DEF_ARGS = ['-B', '-R', '1000', '-f', '24', '-b', '300',
-                         '-s', '288000', '-r', '72000', '-d', '1000']
+                         '-s', '288000', '-r', '72000']
 
 # meteor demod args per sat
 METEOR_DEMOD_EXTRA_ARGS = {
