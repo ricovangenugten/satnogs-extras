@@ -11,9 +11,11 @@ You can use any satnogs flowgraph that produces IQ data with a wide enough
 bandwidth, I used the satnogs FSK flowgraph since it outputs IQ data at a
 sample rate of 4 times the baud rate which is 7200 * 4 = 28800 for Meteor M2,
 more than enough for LRPT. To configure the flowgraph that is used for LRPT
-edit the satnogs-client settings.py. There is a map describing which
-flowgraph to use for which modulation. Copy the map item with the key 'FSK', leave
-copied value the same and change the copied key to 'LRPT'.
+edit the satnogs-client file settings.py, which can be found here on Raspberry Pi:
+/var/lib/satnogs/lib/python3.7/site-packages/satnogsclient/settings.py.
+In that file is a map describing which flowgraph to use for which modulation. 
+Copy the map item with the key 'FSK', leave the copied value the same and change 
+the copied key to 'LRPT'.
 
 This script can be directly run as a post observation script. It depends on
 meteor_demod and medet, so be sure to install those on your system and configure
