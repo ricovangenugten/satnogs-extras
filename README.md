@@ -1,24 +1,26 @@
-# Extra Demodulators for SatNOGS
-This repository contains extra demodulators and other useful scripts to extend the functionality of a SatNOGS groundstation.
+# LRPT processor post observation script
 
-It is assumed that the user has a functional SatNOGS ground station.
+See scripts/process_meteor.py
 
-## Flowgraphs
-* LRPT Demod - Produces a 'wide' (~150 kHz) waterfall, and saves QPSK soft-symbols to /tmp/. These can then be demodulated using meteor_decoder (https://github.com/artlav/meteor_decoder)
-* BPSK9600 Demod - Demodulates 9600 baud BPSK (ala LilacSat-1) to a 12 kHz IF file, suitable for further processing with gr-satellites. 
+This script picks up LRPT IQ recordings from wherever a satnogs flowgraph 
+puts them, processes them and places output images in the satnogs recorded 
+data directory, where satnogs-client will pick them up and upload them to the
+corresponding observation.
 
-## Useful Scripts
-* 9600 baud FSK Demodulator Script
-  * Requires direwolf and sox be installed.
-  * Run using: ./demod_ax25_9k6.sh /path/to/file.ogg
-* APT Demodulator Script
-  * DEPRECATED - USE SatNOGS INTERNAL APT DEMOD INSTEAD.
-  * Requires wxtoimg beta - http://www.wxtoimg.com/beta/
-  * Also requires sox to demod and resample the ogg recordings.
-  * Run with: demod_apt.sh /path/to/recording.ogg
-  * Output is saved to /tmp/recording.ogg.png
-* LRPT Demod Script - process_meteor.py
-  * Requires meteor_decoder: https://github.com/artlav/meteor_decoder
-  * Also requires the 'convert' utility from imagemagick
-  * Decodes .s (soft-bit) files from /tmp/, produces a combined png output, and places it in the .satnogs/data directory to be uploaded.
-  * Run with: python process_meteor.py
+You can use any satnogs flowgraph that produces IQ data with a wide enough
+bandwidth, I used the satnogs FSK flowgraph since it outputs IQ data at a
+sample rate of 4 times the baud rate which is 7200 * 4 = 28800 for Meteor M2,
+more than enough for LRPT. To configure the flowgraph that is used for LRPT
+edit the satnogs-client settings.py. There is a map describing which
+flowgraph to use for which modulation. Copy the map item with the key 'FSK', leave
+copied value the same and change the copied key to 'LRPT'.
+
+This script can be directly run as a post observation script. It depends on
+meteor_demod and medet, so be sure to install those on your system and configure
+the paths to the binaries below. Also update the data paths to suit your system.
+Then, in satnogs_setup enable iq dumping to the path as specified in IQ_NEW_PATH
+Do not use /var/tmp to store the IQ files on a Raspberry Pi, as this is a ramdisk 
+that could potentially be filled up quickly. Then configure this script as post
+observation script using the following line:
+
+/path/to/process_meteor.py --id {{ID}} --tle {{TLE}}
