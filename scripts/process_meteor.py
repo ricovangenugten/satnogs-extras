@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Meteor Decoder Processor
 #   Initial version for Meteor M2:
@@ -6,24 +6,33 @@
 #   This version:
 #   Rico van Genugten @PA3RVG 2019-11-19
 #
-#   This script picks up LRPT IQ recordings from wherever a satnogs flowgraph 
-#   puts them, processes them and places output images in the satnogs recorded 
+#   This script picks up IQ recordings from wherever a satnogs flowgraph
+#   puts them, processes them and places output images in the satnogs recorded
 #   data directory, where satnogs-client will pick them up and upload them to the
-#   corresponding observation.
+#   corresponding observation. The uses meteor_demod, medet and the convert tool
+#   supplied by imagemagick, which should be installed on your system.
+#   You can find them here:
+#
+#   meteor_demod: https://github.com/dbdexter-dev/meteor_demod
+#   medet:        https://github.com/artlav/meteor_decoder
+#   convert:      apt install imagemagick
 #
 #   You can use any satnogs flowgraph that produces IQ data with a wide enough
 #   bandwidth, I used the satnogs FSK flowgraph since it outputs IQ data at a
 #   sample rate of 4 times the baud rate which is 7200 * 4 = 28800 for Meteor M2,
 #   more than enough for LRPT. To configure the flowgraph that is used for LRPT
-#   edit the satnogs-client settings.py. There is a map describing which
+#   edit the satnogs-client radio/flowgraphs.py file. There is a map describing which
 #   flowgraph to use for which modulation. Copy the map item with the key 'FSK', leave
-#   copied value the same and change the copied key to 'LRPT'.
+#   copied value the same and change the copied key to 'LRPT'. When installed with ansible
+#   the file is here:
+#
+#   /var/lib/satnogs/lib/python3.7/site-packages/satnogsclient/radio/flowgraphs.py
 #
 #   This script can be directly run as a post observation script. It depends on
 #   meteor_demod and medet, so be sure to install those on your system and configure
 #   the paths to the binaries below. Also update the data paths to suit your system.
 #   Then, in satnogs_setup enable iq dumping to the path as specified in IQ_NEW_PATH
-#   Do not use /var/tmp to store the IQ files on a Raspberry Pi, as this is a ramdisk 
+#   Do not use /var/tmp to store the IQ files on a Raspberry Pi, as this is a ramdisk
 #   that could potentially be filled up quickly. Then configure this script as post
 #   observation script using the following line:
 #
@@ -39,27 +48,22 @@ from time import sleep
 import argparse
 import re
 
-
-# main path where all meteor files are. The following subdirs
-# are expected: /new_iq, /intermediate, /complete, /bin
-DATA_PATH         = "/datadrive/meteor"
+# Data paths
+IQ_NEW_PATH       = "/tmp/satnogs_last_obs.iq"
+INTERMEDIATE_DIR  = "/tmp/meteor/intermediate"
+COMPLETE_DIR      = "/tmp/meteor/complete"
 
 # Where to place the complete images.
 DESTINATION_DIR   = "/tmp/.satnogs/data"
 
 # Whether you want to delete input files when complete
-DELETE_COMPLETE_FILES = False
+DELETE_COMPLETE_FILES = True
 
 # Paths to binaries we need. If these binaries are not on $PATH, change the
 # paths below to point to the appropriate place.
-MEDET_PATH        = DATA_PATH + "/bin/medet_arm"
-METEOR_DEMOD_PATH = DATA_PATH + "/bin/meteor_demod"
+MEDET_PATH        = "/usr/local/bin/medet"
+METEOR_DEMOD_PATH = "/usr/local/bin/meteor_demod"
 CONVERT_PATH      = "convert"
-
-# Derived paths
-IQ_NEW_PATH       = DATA_PATH + "/new_iq/last_obs.iq"
-INTERMEDIATE_DIR  = DATA_PATH + "/intermediate"
-COMPLETE_DIR      = DATA_PATH + "/complete"
 
 # NORAD IDs
 METEOR_M2_1_ID = 40069
@@ -261,6 +265,10 @@ if __name__ == "__main__":
     # Sleep for a bit.
     print("Waiting for %d seconds before processing." % wait_time)
     sleep(wait_time)
+
+    # Create data dirs
+    os.makedirs(INTERMEDIATE_DIR, exist_ok=True)
+    os.makedirs(COMPLETE_DIR, exist_ok=True)
 
     # Search for iq files.
     new_iq_files = glob(IQ_NEW_PATH)
